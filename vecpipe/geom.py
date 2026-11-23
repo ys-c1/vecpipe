@@ -24,6 +24,22 @@ def polyline_length(points):
     return total
 
 
+def polygon_area(points):
+    """鞋带公式（Shoelace）：简单多边形的有向面积绝对值。
+
+    这是矢量层面的“真实面积”，可与光栅化后逐像素数出来的图块面积互相对照。
+    """
+    n = len(points)
+    if n < 3:
+        raise ValueError("多边形至少三个顶点")
+    total = 0.0
+    for i in range(n):
+        x1, y1 = points[i]
+        x2, y2 = points[(i + 1) % n]
+        total += x1 * y2 - y1 * x2
+    return abs(total) * 0.5
+
+
 def point_in_poly(points, px, py):
     inside = False
     n = len(points)
