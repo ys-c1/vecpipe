@@ -14,6 +14,7 @@ DEFAULTS = {
     "shading": "flat",
     "gamma": 1.0,
     "blur": 0,
+    "trace": False,
     "output": "out.pgm",
 }
 
@@ -41,6 +42,8 @@ def parse(raw):
     cfg["supersample"] = int(_num("supersample", cfg["supersample"], 1, 8))
     cfg["gamma"] = _num("gamma", cfg["gamma"], 0.1, 10.0)
     cfg["blur"] = int(_num("blur", cfg["blur"], 0, 16))
+    if not isinstance(cfg["trace"], bool):
+        raise ConfigError("trace 必须是布尔值")
     if cfg["shading"] not in ("flat", "gradient"):
         raise ConfigError("shading 只能是 flat 或 gradient")
     if not isinstance(cfg["output"], str) or not cfg["output"]:
