@@ -1,5 +1,5 @@
 PY ?= python3
-.PHONY: all test render clean info
+.PHONY: all test render clean info bench
 
 all: test
 
@@ -11,6 +11,9 @@ render:
 
 info:
 	$(PY) -m vecpipe.cli info
+
+bench:
+	$(PY) -I bench/bench_atlas.py
 
 clean:
 	rm -f out.pgm
