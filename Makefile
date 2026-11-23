@@ -1,5 +1,5 @@
 PY ?= python3
-.PHONY: all test render clean info
+.PHONY: all test render clean info bench
 
 all: test
 
@@ -8,6 +8,9 @@ test:
 
 render:
 	$(PY) -m vecpipe.cli render --config '{}' --out out.pgm
+
+bench:
+	$(PY) -I bench/bench_coverage_cache.py
 
 info:
 	$(PY) -m vecpipe.cli info

@@ -15,6 +15,8 @@ DEFAULTS = {
     "gamma": 1.0,
     "blur": 0,
     "output": "out.pgm",
+    "cache_capacity": 0,
+    "cache_verify": False,
 }
 
 
@@ -41,6 +43,13 @@ def parse(raw):
     cfg["supersample"] = int(_num("supersample", cfg["supersample"], 1, 8))
     cfg["gamma"] = _num("gamma", cfg["gamma"], 0.1, 10.0)
     cfg["blur"] = int(_num("blur", cfg["blur"], 0, 16))
+    cfg["cache_capacity"] = int(_num("cache_capacity", cfg["cache_capacity"], 0, 4096))
+    if isinstance(cfg["cache_verify"], bool):
+        pass
+    elif isinstance(cfg["cache_verify"], int) and cfg["cache_verify"] in (0, 1):
+        cfg["cache_verify"] = bool(cfg["cache_verify"])
+    else:
+        raise ConfigError("cache_verify 必须是布尔值")
     if cfg["shading"] not in ("flat", "gradient"):
         raise ConfigError("shading 只能是 flat 或 gradient")
     if not isinstance(cfg["output"], str) or not cfg["output"]:

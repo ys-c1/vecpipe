@@ -16,7 +16,9 @@ def run(scene, raw_cfg=None):
     cfg = config.parse(raw_cfg)
     image = raster.new_image(cfg["width"], cfg["height"])
     moved = [transform(poly, cfg["scale"], cfg["rotate"]) for poly in scene]
-    raster.fill(image, moved, cfg["supersample"])
+    cache = raster.CoverageCache(cfg["cache_capacity"]) if cfg["cache_capacity"] else None
+    raster.fill(image, moved, cfg["supersample"],
+                cache=cache, verify=cfg["cache_verify"])
     shading.apply(image, cfg["shading"])
     image = post.gamma(image, cfg["gamma"])
     image = post.blur(image, cfg["blur"])
