@@ -38,6 +38,81 @@ def test_stroke_requires_positive_width():
         geom.stroke([(0, 0), (1, 0)], 0)
 
 
+def _legacy_stroke(points, width):
+    """改动前的 stroke 实现，用于逐字节对照。"""
+    half = width * 0.5
+    left, right = [], []
+    for i, (x, y) in enumerate(points):
+        if i + 1 < len(points):
+            dx = points[i + 1][0] - x
+            dy = points[i + 1][1] - y
+        else:
+            dx = x - points[i - 1][0]
+            dy = y - points[i - 1][1]
+        norm = math.hypot(dx, dy)
+        if norm < 1e-12:
+            raise ValueError("折线出现重复点")
+        nx, ny = -dy / norm * half, dx / norm * half
+        left.append((x + nx, y + ny))
+        right.append((x - nx, y - ny))
+    return left + right[::-1]
+
+
+def test_stroke_butt_identical_to_legacy():
+    pts = geom.flatten((0, 0), (3, 8), (9, -4), (12, 6), 12)
+    for w in (0.5, 2.0, 7.3):
+        assert geom.stroke(pts, w) == _legacy_stroke(pts, w)
+        assert geom.stroke(pts, w, cap="butt") == _legacy_stroke(pts, w)
+
+
+def test_stroke_rejects_bad_cap():
+    with pytest.raises(ValueError):
+        geom.stroke([(0, 0), (1, 0)], 1.0, cap="triangle")
+
+
+def test_stroke_duplicate_reports_index():
+    pts = [(0, 0), (1, 0), (2, 0), (2, 0), (3, 0)]
+    with pytest.raises(ValueError) as exc:
+        geom.stroke(pts, 1.0)
+    assert "2" in str(exc.value) and "3" in str(exc.value)
+
+
+def test_stroke_cap_vertex_counts():
+    pts = [(0, 0), (10, 0)]
+    n = len(geom.stroke(pts, 2.0))
+    assert len(geom.stroke(pts, 2.0, cap="square")) == n + 4
+    assert len(geom.stroke(pts, 2.0, cap="round", cap_segments=8)) == n + 14
+
+
+def test_stroke_square_cap_area_matches_hand():
+    # 直线段：主体面积 = 长 * 宽，方帽手算面积 = 宽^2
+    pts = [(0, 0), (20, 0)]
+    w = 4.0
+    outline = geom.stroke(pts, w, cap="square")
+    expect = 20 * w + geom.cap_area(w, "square")
+    assert abs(geom.polygon_area(outline) - expect) < 1e-9
+
+
+def test_stroke_round_cap_area_within_bound():
+    # 圆帽手算面积 = pi * w^2 / 4，弦逼近误差不超过 cap_area_error_bound
+    pts = [(0, 0), (20, 0)]
+    w = 4.0
+    for k in (8, 32, 128):
+        outline = geom.stroke(pts, w, cap="round", cap_segments=k)
+        expect = 20 * w + geom.cap_area(w, "round")
+        diff = abs(geom.polygon_area(outline) - expect)
+        assert diff <= geom.cap_area_error_bound(w, "round", k)
+
+
+def test_stroke_round_cap_tip_extends_by_half():
+    pts = [(0, 0), (20, 0)]
+    w = 4.0
+    outline = geom.stroke(pts, w, cap="round", cap_segments=64)
+    xs = [p[0] for p in outline]
+    assert max(xs) == pytest.approx(20 + w / 2, abs=1e-9)
+    assert min(xs) == pytest.approx(-w / 2, abs=1e-9)
+
+
 def test_config_rejects_unknown():
     with pytest.raises(config.ConfigError):
         config.parse({"nope": 1})
