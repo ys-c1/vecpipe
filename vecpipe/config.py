@@ -1,4 +1,5 @@
 """配置解析与校验。所有字段都有类型与范围，非法值一律抛 ConfigError。"""
+import math
 
 
 class ConfigError(ValueError):
@@ -15,6 +16,7 @@ DEFAULTS = {
     "gamma": 1.0,
     "blur": 0,
     "output": "out.pgm",
+    "dedup_tolerance": None,
 }
 
 
@@ -45,4 +47,15 @@ def parse(raw):
         raise ConfigError("shading 只能是 flat 或 gradient")
     if not isinstance(cfg["output"], str) or not cfg["output"]:
         raise ConfigError("output 必须是非空字符串")
+    tol = cfg["dedup_tolerance"]
+    if tol is not None:
+        if isinstance(tol, bool) or not isinstance(tol, (int, float)):
+            raise ConfigError("dedup_tolerance 必须是数字或 null")
+        tol = float(tol)
+        if not math.isfinite(tol):
+            raise ConfigError("dedup_tolerance 必须是有限数")
+        if tol <= 0.0:
+            raise ConfigError("dedup_tolerance 必须为正数；"
+                              "关闭去重请设为 null，而不是 0 或负数")
+        cfg["dedup_tolerance"] = tol
     return cfg
