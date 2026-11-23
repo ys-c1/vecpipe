@@ -1,5 +1,5 @@
 PY ?= python3
-.PHONY: all test render clean info
+.PHONY: all test render clean info clipstat
 
 all: test
 
@@ -8,6 +8,9 @@ test:
 
 render:
 	$(PY) -m vecpipe.cli render --config '{}' --out out.pgm
+
+clipstat:
+	$(PY) -m vecpipe.cli clipstat
 
 info:
 	$(PY) -m vecpipe.cli info

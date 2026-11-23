@@ -1,10 +1,12 @@
+import hashlib
 import math
 import os
 import tempfile
 
 import pytest
 
-from vecpipe import config, geom, post, pipeline, raster, shading
+from vecpipe import clipstat, config, geom, post, pipeline, raster, shading
+from vecpipe import cli
 
 
 def test_bezier_endpoints():
@@ -113,3 +115,76 @@ def test_pipeline_runs():
 def test_pipeline_rejects_bad_config():
     with pytest.raises(config.ConfigError):
         pipeline.run([[(0, 0), (1, 0), (1, 1)]], {"gamma": 0})
+
+
+def test_clipstat_signed_area():
+    ccw = [(0, 0), (10, 0), (10, 10), (0, 10)]
+    assert clipstat.signed_area(ccw) == 100.0
+    assert clipstat.signed_area(ccw[::-1]) == -100.0
+
+
+def test_clipstat_empty_window_reports_index():
+    shapes = [[(0, 0), (10, 0), (10, 10), (0, 10)]]
+    windows = [[(0, 0), (1, 0), (1, 1)], [(2, 2)], [(0, 0), (5, 0), (5, 5)]]
+    with pytest.raises(ValueError, match="窗口 1 为空"):
+        clipstat.measure(shapes, windows, 8, 8)
+
+
+def test_clipstat_negative_area_reports_index():
+    shapes = [[(0, 0), (10, 0), (10, 10), (0, 10)]]
+    cw = [(0, 0), (0, 5), (5, 5), (5, 0)]  # 顺时针，面积为负
+    with pytest.raises(ValueError, match="窗口 1 面积为负"):
+        clipstat.measure(shapes, [[(0, 0), (1, 0), (1, 1)], cw], 8, 8)
+
+
+def test_clipstat_ratio_known():
+    shapes = [[(0, 0), (10, 0), (10, 10), (0, 10)]]
+    half = [(5, 0), (10, 0), (10, 10), (5, 10)]
+    inter, union, ratio = clipstat.clip_ratio(shapes, half)
+    assert inter == pytest.approx(50.0)
+    assert union == pytest.approx(100.0)
+    assert ratio == pytest.approx(0.5)
+
+
+def test_clipstat_pixel_within_bound():
+    shapes = [[(0, 0), (10, 0), (10, 10), (0, 10)]]
+    window = [(2, 2), (8, 2), (8, 8), (2, 8)]
+    inter, union, ratio = clipstat.clip_ratio(shapes, window)
+    ei, eu, bound = clipstat.pixel_ratio(shapes, window, 24, 24)
+    assert inter == pytest.approx(36.0)
+    est = ei / eu
+    assert abs(ratio - est) <= bound + 1e-12
+
+
+def test_clipstat_two_tiers_report_ratio_and_time():
+    shapes = [[(0, 0), (10, 0), (10, 10), (0, 10)]]
+    bbox = (0.0, 0.0, 10.0, 10.0)
+    for tier in (4, 16):
+        res = clipstat.measure(shapes, clipstat.grid_windows(tier, bbox), 12, 12)
+        assert res["windows"] == tier
+        assert 0.0 < res["ratio"] <= 1.0
+        assert res["elapsed"] >= 0.0
+        assert res["max_dev"] <= res["max_window_bound"] + 1e-12
+        assert abs(res["ratio"] - res["pixel_ratio"]) <= res["err_bound"] + 1e-12
+
+
+def test_clipstat_rejects_bad_window_count():
+    with pytest.raises(ValueError):
+        clipstat.grid_windows(0, (0, 0, 1, 1))
+
+
+def test_cli_clipstat_runs(capsys):
+    assert cli.main(["clipstat", "--tiers", "2,4", "--pixels", "8"]) == 0
+    out = capsys.readouterr().out
+    assert out.count("tier windows=") == 2
+
+
+def test_render_bytes_unchanged_when_stats_off():
+    # 统计全部走 clipstat 子命令，render 路径不变，出图必须与基线逐字节相同
+    image = pipeline.run(cli.SCENE, {})
+    with tempfile.TemporaryDirectory() as tmp:
+        path = os.path.join(tmp, "out.pgm")
+        raster.save_pgm(path, image)
+        data = open(path, "rb").read()
+    assert hashlib.sha256(data).hexdigest() == (
+        "fbda3e5665174433272beab4f25172bc03466e3f8700bcf6007b32c3636f2dc3")
