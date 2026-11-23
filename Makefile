@@ -1,10 +1,13 @@
 PY ?= python3
-.PHONY: all test render clean info
+.PHONY: all test render clean info bench
 
 all: test
 
 test:
 	$(PY) -m pytest -q
+
+bench:
+	$(PY) bench/bench_flatten.py
 
 render:
 	$(PY) -m vecpipe.cli render --config '{}' --out out.pgm

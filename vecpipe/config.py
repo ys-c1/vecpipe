@@ -14,6 +14,9 @@ DEFAULTS = {
     "shading": "flat",
     "gamma": 1.0,
     "blur": 0,
+    "adaptive": False,
+    "segments": 16,
+    "flatness": 0.25,
     "output": "out.pgm",
 }
 
@@ -41,6 +44,12 @@ def parse(raw):
     cfg["supersample"] = int(_num("supersample", cfg["supersample"], 1, 8))
     cfg["gamma"] = _num("gamma", cfg["gamma"], 0.1, 10.0)
     cfg["blur"] = int(_num("blur", cfg["blur"], 0, 16))
+    if not isinstance(cfg["adaptive"], bool):
+        raise ConfigError("adaptive 必须是布尔值")
+    cfg["segments"] = int(_num("segments", cfg["segments"], 1, 4096))
+    # flatness 必须严格为正：零容差在几何层也会被 geom.FlattenError 拦下
+    # 并指出段号，这里在配置入口提前拒绝。
+    cfg["flatness"] = _num("flatness", cfg["flatness"], 1e-9, 1e6)
     if cfg["shading"] not in ("flat", "gradient"):
         raise ConfigError("shading 只能是 flat 或 gradient")
     if not isinstance(cfg["output"], str) or not cfg["output"]:

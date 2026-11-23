@@ -12,6 +12,20 @@ def transform(points, scale, rotate, dx=0.0, dy=0.0):
     return out
 
 
+def flatten_scene(curves, cfg):
+    """按配置把贝塞尔路径展平为折线。
+
+    cfg["adaptive"] 为 False（默认）时走固定段数路径，与历史行为一致；
+    为 True 时按 cfg["flatness"] 弦高容差自适应细分。
+    """
+    return geom.flatten_path(
+        curves,
+        adaptive=cfg["adaptive"],
+        segments=cfg["segments"],
+        tol=cfg["flatness"],
+    )
+
+
 def run(scene, raw_cfg=None):
     cfg = config.parse(raw_cfg)
     image = raster.new_image(cfg["width"], cfg["height"])
